@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Group ───────────────────────────────────────────────────────────────────
+
+model Group {
+  id        String   @id @default(cuid())
+  telegramId BigInt   @unique
+  title     String
+  username  String?
+  isActive  Boolean  @default(true)
+  addedAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings    GroupSettings?
+  members     GroupMember[]
+  keywords    Keyword[]
+  warnings    Warning[]
+  logs        Log[]
+  punishments Punishment[]
+
+  @@map("groups")
+}
+
+// ─── Group Settings ───────────────────────────────────────────────────────────
+
+model GroupSettings {
+  id      String @id @default(cuid())
+  groupId String @unique
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // Cleaner
+  cleanerEnabled      Boolean @default(true)
+  cleanJoin           Boolean @default(true)
+  cleanLeave          Boolean @default(true)
+  cleanPhotoChange    Boolean @default(false)
+  cleanPinnedMessage  Boolean @default(false)
+  cleanTitleChange    Boolean @default(false)
+
+  // Antispam
+  antispamEnabled     Boolean @default(true)
+  floodControl        Boolean @default(true)
+  floodMaxMessages    Int     @default(5)
+  floodWindowSeconds  Int     @default(10)
+  antiRepeat          Boolean @default(true)
+  antiEmojiSpam       Boolean @default(true)
+  maxEmojiCount       Int     @default(10)
+  antiMentionSpam     Boolean @default(true)
+  maxMentions         Int     @default(5)
+  antiLinkSpam        Boolean @default(true)
+  antiForwardSpam     Boolean @default(true)
+
+  // Protection
+  protectionEnabled   Boolean @default(true)
+  antiPorn            Boolean @default(true)
+  antiScam            Boolean @default(true)
+  antiFakeCrypto      Boolean @default(true)
+  protectionAction    PunishmentType @default(BAN)
+
+  // Keyword blocker
+  keywordEnabled      Boolean @default(true)
+  keywordAction       PunishmentType @default(MUTE)
+
+  // Warn system
+  warnLimit           Int    @default(3)
+  warnAction          PunishmentType @default(BAN)
+  warnMuteDuration    Int    @default(60)
+
+  // Moderation
+  filterInviteLinks   Boolean @default(true)
+  filterNsfw          Boolean @default(true)
+  restrictNewUsers    Boolean @default(false)
+  newUserRestrictSec  Int     @default(300)
+
+  // Logging
+  logEnabled          Boolean @default(false)
+  logChatId           BigInt?
+
+  // Welcome / Rules
+  welcomeEnabled      Boolean @default(false)
+  welcomeMessage      String?
+  rulesEnabled        Boolean @default(false)
+  rulesText           String?
+  autoRulesOnJoin     Boolean @default(false)
+
+  // Captcha
+  captchaEnabled      Boolean @default(false)
+  captchaTimeout      Int     @default(60)
+
+  // Anti-raid
+  antiRaidEnabled     Boolean @default(false)
+  antiRaidThreshold   Int     @default(10)
+  antiRaidWindowSec   Int     @default(30)
+
+  // Silent mode (no bot messages)
+  silentMode          Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("group_settings")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  telegramId BigInt   @unique
+  username   String?
+  firstName  String?
+  lastName   String?
+  isBot      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  memberships GroupMember[]
+  warnings    Warning[]
+  punishments Punishment[]
+  logs        Log[]
+
+  @@map("users")
+}
+
+// ─── Group Member (roles) ─────────────────────────────────────────────────────
+
+model GroupMember {
+  id      String @id @default(cuid())
+  groupId String
+  userId  String
+  role    Role   @default(MEMBER)
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isBlacklisted Boolean  @default(false)
+  isWhitelisted Boolean  @default(false)
+  joinedAt      DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+// ─── Keyword ──────────────────────────────────────────────────────────────────
+
+model Keyword {
+  id        String      @id @default(cuid())
+  groupId   String
+  group     Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  pattern   String
+  isRegex   Boolean     @default(false)
+  action    PunishmentType @default(MUTE)
+  addedBy   BigInt
+  createdAt DateTime    @default(now())
+
+  @@unique([groupId, pattern])
+  @@map("keywords")
+}
+
+// ─── Warning ──────────────────────────────────────────────────────────────────
+
+model Warning {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  reason    String?
+  issuedBy  BigInt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("warnings")
+}
+
+// ─── Punishment ───────────────────────────────────────────────────────────────
+
+model Punishment {
+  id         String         @id @default(cuid())
+  groupId    String
+  userId     String
+  type       PunishmentType
+  reason     String?
+  issuedBy   BigInt
+  duration   Int?           // minutes, null = permanent
+  isActive   Boolean        @default(true)
+  expiresAt  DateTime?
+  createdAt  DateTime       @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("punishments")
+}
+
+// ─── Log ──────────────────────────────────────────────────────────────────────
+
+model Log {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String?
+  action    LogAction
+  details   Json?
+  createdAt DateTime @default(now())
+
+  group Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([groupId, createdAt])
+  @@map("logs")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum PunishmentType {
+  WARN
+  MUTE
+  TEMP_MUTE
+  KICK
+  BAN
+  TEMP_BAN
+  DELETE
+}
+
+enum LogAction {
+  MESSAGE_DELETED
+  USER_WARNED
+  USER_MUTED
+  USER_TEMP_MUTED
+  USER_KICKED
+  USER_BANNED
+  USER_TEMP_BANNED
+  USER_UNBANNED
+  USER_UNMUTED
+  WARNING_REMOVED
+  KEYWORD_ADDED
+  KEYWORD_REMOVED
+  SETTINGS_CHANGED
+  ADMIN_ACTION
+  SPAM_DETECTED
+  PROTECTION_TRIGGERED
+  RAID_DETECTED
+}
