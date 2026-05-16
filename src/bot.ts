@@ -1,7 +1,17 @@
 import { Bot, session } from 'grammy';
 import { parseMode } from '@grammyjs/parse-mode';
 import { hydrate } from '@grammyjs/hydrate';
+import { conversations, createConversation } from '@grammyjs/conversations';
 import { BotContext, SessionData } from './types';
+import {
+  addKeywordConversation,
+  setWelcomeConversation,
+  setRulesConversation,
+  setLogChatConversation,
+  setWarnLimitConversation,
+} from './conversations';
+import { registerMenuCommand } from './commands/menu.command';
+import { registerActionsCommand } from './commands/actions.command';
 import { config } from './configs';
 import { logger } from './utils/logger';
 
@@ -42,6 +52,14 @@ export function createBot(): Bot<BotContext> {
     }),
   );
 
+  // ─── Conversations (text-input flows behind buttons) ──────────────────
+  bot.use(conversations());
+  bot.use(createConversation(addKeywordConversation, 'addKeyword'));
+  bot.use(createConversation(setWelcomeConversation, 'setWelcome'));
+  bot.use(createConversation(setRulesConversation, 'setRules'));
+  bot.use(createConversation(setLogChatConversation, 'setLogChat'));
+  bot.use(createConversation(setWarnLimitConversation, 'setWarnLimit'));
+
   // ─── Custom middleware (order matters) ────────────────────────────────
   bot.use(loggingMiddleware);
   bot.use(rateLimitMiddleware);
@@ -57,6 +75,8 @@ export function createBot(): Bot<BotContext> {
 
   // ─── Commands ─────────────────────────────────────────────────────────
   registerStartCommand(bot);
+  registerMenuCommand(bot);          // /menu — main inline UI entry
+  registerActionsCommand(bot);       // /actions — reply moderation buttons
   registerCleanerCommands(bot);
   registerKeywordCommands(bot);
   registerAntispamCommands(bot);

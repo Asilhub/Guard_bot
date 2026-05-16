@@ -14,24 +14,11 @@ async function main(): Promise<void> {
 
   // Set bot commands for Telegram menu
   await bot.api.setMyCommands([
-    { command: 'start', description: 'Botni ishga tushirish' },
-    { command: 'help', description: 'Yordam' },
-    { command: 'settings', description: 'Sozlamalar paneli' },
-    { command: 'cleaner', description: 'Cleaner sozlamalari' },
-    { command: 'antispam', description: 'Antispam sozlamalari' },
-    { command: 'keywords', description: 'Kalit so\'zlar ro\'yxati' },
-    { command: 'addkeyword', description: 'Kalit so\'z qo\'shish' },
-    { command: 'removekeyword', description: 'Kalit so\'z o\'chirish' },
-    { command: 'warn', description: 'Foydalanuvchiga ogohlantirish' },
-    { command: 'unwarn', description: 'Ogohlantirish olib tashlash' },
-    { command: 'warns', description: 'Ogohlantirishlar ro\'yxati' },
-    { command: 'ban', description: 'Foydalanuvchini ban qilish' },
-    { command: 'unban', description: 'Foydalanuvchini ban olib tashlash' },
-    { command: 'kick', description: 'Foydalanuvchini kick qilish' },
-    { command: 'mute', description: 'Foydalanuvchini mute qilish' },
-    { command: 'unmute', description: 'Foydalanuvchini mute olib tashlash' },
-    { command: 'logs', description: 'Oxirgi loglar' },
-    { command: 'rules', description: 'Guruh qoidalari' },
+    { command: 'menu', description: '🎛 Boshqaruv paneli' },
+    { command: 'actions', description: '🛡 Reply qilingan foydalanuvchi ustida amallar' },
+    { command: 'rules', description: '📋 Guruh qoidalari' },
+    { command: 'help', description: '❓ Yordam' },
+    { command: 'start', description: '🚀 Botni ishga tushirish' },
   ]);
 
   // Graceful shutdown

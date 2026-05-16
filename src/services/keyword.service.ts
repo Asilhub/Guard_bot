@@ -28,6 +28,12 @@ export class KeywordService {
     return result.count > 0;
   }
 
+  async removeById(groupId: string, id: string): Promise<boolean> {
+    const result = await prisma.keyword.deleteMany({ where: { groupId, id } });
+    if (result.count > 0) await cacheService.invalidateKeywords(groupId);
+    return result.count > 0;
+  }
+
   async list(groupId: string): Promise<Keyword[]> {
     const cached = await cacheService.getKeywords<Keyword[]>(groupId);
     if (cached) return cached;

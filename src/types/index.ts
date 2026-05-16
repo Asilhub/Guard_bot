@@ -1,5 +1,6 @@
 import { Context, SessionFlavor } from 'grammy';
 import { HydrateFlavor } from '@grammyjs/hydrate';
+import { ConversationFlavor } from '@grammyjs/conversations';
 import { Group, GroupSettings, GroupMember, User, Role } from '@prisma/client';
 
 // ─── Session ──────────────────────────────────────────────────────────────────
@@ -11,13 +12,13 @@ export interface SessionData {
 
 // ─── Custom Context ───────────────────────────────────────────────────────────
 
-export interface BotContext
-  extends HydrateFlavor<Context>,
-    SessionFlavor<SessionData> {
+type BaseContext = HydrateFlavor<Context> & SessionFlavor<SessionData>;
+
+export type BotContext = ConversationFlavor<BaseContext> & {
   group?: GroupWithSettings;
   dbUser?: User;
   memberRole?: Role;
-}
+};
 
 // ─── Extended Types ───────────────────────────────────────────────────────────
 
