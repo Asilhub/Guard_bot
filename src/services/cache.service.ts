@@ -21,11 +21,17 @@ export class CacheService {
 
   async get<T>(k: string): Promise<T | null> {
     const raw = await redis.get(k);
-    return raw ? (JSON.parse(raw) as T) : null;
+    if (!raw) return null;
+    return JSON.parse(raw, (_key, val) =>
+      typeof val === 'string' && /^-?\d+n$/.test(val) ? BigInt(val.slice(0, -1)) : val,
+    ) as T;
   }
 
   async set(k: string, value: unknown, ttl: number): Promise<void> {
-    await redis.setex(k, ttl, JSON.stringify(value));
+    const serialized = JSON.stringify(value, (_key, val) =>
+      typeof val === 'bigint' ? `${val.toString()}n` : val,
+    );
+    await redis.setex(k, ttl, serialized);
   }
 
   async del(k: string): Promise<void> {

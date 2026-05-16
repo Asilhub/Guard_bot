@@ -12,14 +12,16 @@ async function main(): Promise<void> {
 
   const bot = createBot();
 
-  // Set bot commands for Telegram menu
-  await bot.api.setMyCommands([
-    { command: 'menu', description: '🎛 Boshqaruv paneli' },
-    { command: 'actions', description: '🛡 Reply qilingan foydalanuvchi ustida amallar' },
-    { command: 'rules', description: '📋 Guruh qoidalari' },
-    { command: 'help', description: '❓ Yordam' },
-    { command: 'start', description: '🚀 Botni ishga tushirish' },
-  ]);
+  // Set bot commands for Telegram menu (non-fatal if network blip)
+  bot.api
+    .setMyCommands([
+      { command: 'menu', description: '🎛 Boshqaruv paneli' },
+      { command: 'actions', description: '🛡 Reply qilingan foydalanuvchi ustida amallar' },
+      { command: 'rules', description: '📋 Guruh qoidalari' },
+      { command: 'help', description: '❓ Yordam' },
+      { command: 'start', description: '🚀 Botni ishga tushirish' },
+    ])
+    .catch((err) => logger.warn(`setMyCommands failed: ${err.message}`));
 
   // Graceful shutdown
   process.once('SIGINT', () => shutdown(bot));
