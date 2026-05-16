@@ -26,7 +26,7 @@ export function registerKeywordEvents(bot: Bot<BotContext>): void {
     const matched = await keywordService.check(ctx.group.id, text);
     if (!matched) return next();
 
-    log.info(`Keyword match: "${matched.pattern}" in group ${ctx.chat.id}`);
+    log.info(`Keyword match: "${matched.pattern}" in group ${ctx.chat.id} by ${ctx.from.id} role=${ctx.memberRole}`);
 
     try {
       await ctx.deleteMessage();
@@ -42,7 +42,19 @@ export function registerKeywordEvents(bot: Bot<BotContext>): void {
       reason: `Keyword: ${matched.pattern}`,
     });
 
-    await punishmentService.apply(bot, {
+    // Telegram won't let a bot restrict/ban admins or owners — say so
+    // explicitly instead of silently failing.
+    if (ctx.memberRole === 'ADMIN' || ctx.memberRole === 'OWNER') {
+      if (!settings.silentMode && matched.action !== PunishmentType.DELETE) {
+        await ctx.reply(
+          `⚠️ ${mention(userId, userName)} — taqiqlangan so'z. Lekin bu foydalanuvchi admin bo'lgani uchun jazo qo'llanmadi.`,
+          { parse_mode: 'HTML' },
+        );
+      }
+      return;
+    }
+
+    const ok = await punishmentService.apply(bot, {
       groupId,
       userId: dbUser.id,
       telegramGroupId: BigInt(ctx.chat.id),
@@ -52,6 +64,14 @@ export function registerKeywordEvents(bot: Bot<BotContext>): void {
     }, matched.action as PunishmentType);
 
     if (!settings.silentMode) {
+      if (!ok && matched.action !== PunishmentType.DELETE) {
+        await ctx.reply(
+          `⚠️ ${mention(userId, userName)} — taqiqlangan so'z. Lekin jazo qo'llab bo'lmadi: <i>${punishmentService.lastError ?? 'nomaʼlum xato'}</i>.\n\n<i>Bot guruhda admin ekanligini va kerakli ruxsatlari borligini tekshiring.</i>`,
+          { parse_mode: 'HTML' },
+        );
+        return;
+      }
+
       const actionText: Record<string, string> = {
         MUTE: '🔇 mute qilindi',
         BAN: '🚫 ban qilindi',

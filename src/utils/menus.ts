@@ -147,8 +147,47 @@ export function mainMenuKeyboard(): InlineKeyboard {
     .text('📊 Logging', 'menu:logging')
     .text('🔌 Pluginlar', 'menu:plugins')
     .row()
+    .text('🚫 Cheklovlar (ban/mute)', 'menu:bans')
+    .row()
     .text('❓ Yordam', 'menu:help')
     .text('🗑 Yopish', 'menu:close');
+}
+
+export type RestrictionItem = {
+  telegramId: bigint;
+  name: string;
+  reason: string | null;
+  type: PunishmentType;
+};
+
+const TYPE_ICON: Record<string, string> = {
+  BAN: '🚫',
+  TEMP_BAN: '🚫⏱',
+  MUTE: '🔇',
+  TEMP_MUTE: '🔇⏱',
+};
+
+export function bansText(items: RestrictionItem[]): string {
+  if (!items.length) {
+    return '🚫 <b>Cheklovlar</b>\n\nAktiv ban/mute yo\'q.';
+  }
+  const list = items
+    .map((u, i) => `${i + 1}. ${TYPE_ICON[u.type] ?? ''} <code>${u.telegramId}</code> — ${escapeHtml(u.name)}${u.reason ? ` (${escapeHtml(u.reason)})` : ''}`)
+    .join('\n');
+  return `🚫 <b>Aktiv cheklovlar (${items.length}):</b>\n\n${list}\n\n<i>Pastdagi tugmalar bilan olib tashlang.</i>`;
+}
+
+export function bansKeyboard(items: RestrictionItem[]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  items.slice(0, 25).forEach((u) => {
+    const isMute = u.type === 'MUTE' || u.type === 'TEMP_MUTE';
+    const verb = isMute ? 'Unmute' : 'Unban';
+    const cb = isMute ? `unmuteu:${u.telegramId}` : `unban:${u.telegramId}`;
+    const label = u.name.length > 22 ? u.name.slice(0, 19) + '...' : u.name;
+    kb.text(`✅ ${verb} ${label}`, cb).row();
+  });
+  kb.text('⬅️ Bosh menyu', 'menu:main');
+  return kb;
 }
 
 export function backKeyboard(target = 'menu:main'): InlineKeyboard {

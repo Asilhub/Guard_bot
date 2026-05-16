@@ -115,12 +115,54 @@ export function registerAdminCommands(bot: Bot<BotContext>): void {
 
   bot.command('unban', requireGroup, requireAdmin, async (ctx) => {
     if (!ctx.group || !ctx.from) return;
-    const target = ctx.message?.reply_to_message?.from;
-    if (!target) return ctx.reply('❌ Reply qiling.');
-    const dbUser = await userService.getByTelegramId(BigInt(target.id));
-    if (!dbUser) return ctx.reply('❌ Topilmadi.');
-    await punishmentService.unban(bot, BigInt(ctx.chat.id), target.id, ctx.group.id, dbUser.id);
-    await ctx.reply(`✅ ${mention(target.id, target.first_name)} ban olib tashlandi.`, { parse_mode: 'HTML' });
+
+    // Allow either reply OR `/unban <userId|@username>` so banned users
+    // (who are no longer in the group and can't be replied to) can be released.
+    let targetId: number | undefined;
+    let targetName = '';
+    const replied = ctx.message?.reply_to_message?.from;
+    if (replied) {
+      targetId = replied.id;
+      targetName = replied.first_name;
+    } else {
+      const arg = ctx.match?.trim();
+      if (!arg) {
+        return ctx.reply(
+          '❌ Foydalanish: reply qiling yoki <code>/unban &lt;user_id&gt;</code> yuboring.',
+          { parse_mode: 'HTML' },
+        );
+      }
+      if (/^\d+$/.test(arg)) {
+        targetId = parseInt(arg, 10);
+      } else {
+        const uname = arg.replace(/^@/, '');
+        const dbUser = await userService.getByUsername(uname);
+        if (!dbUser) {
+          return ctx.reply('❌ Foydalanuvchi topilmadi. User ID ko\'rsating yoki reply qiling.');
+        }
+        targetId = Number(dbUser.telegramId);
+        targetName = dbUser.firstName ?? uname;
+      }
+    }
+
+    if (!targetId) return ctx.reply('❌ Foydalanuvchi aniqlanmadi.');
+
+    const dbUser = await userService.getOrCreate(BigInt(targetId), targetName || String(targetId));
+    try {
+      await punishmentService.unban(
+        bot,
+        BigInt(ctx.chat.id),
+        targetId,
+        ctx.group.id,
+        dbUser.id,
+      );
+    } catch (err) {
+      return ctx.reply(`❌ Unban xatolik: ${(err as Error).message}`);
+    }
+    await ctx.reply(
+      `✅ ${mention(targetId, targetName || String(targetId))} ban olib tashlandi.`,
+      { parse_mode: 'HTML' },
+    );
   });
 
   // ─── Mute / Unmute ──────────────────────────────────────────────────────

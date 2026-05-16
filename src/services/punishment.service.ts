@@ -78,9 +78,14 @@ export class PunishmentService {
       return true;
     } catch (err) {
       logger.error('Punishment failed', { type, telegramUserId, err });
+      this.lastError = (err as Error)?.message ?? String(err);
       return false;
     }
   }
+
+  // Last error message from a failed apply() — useful for surfacing
+  // "can't restrict admin" or "bot is not admin" to the moderator.
+  lastError: string | null = null;
 
   async unban(bot: Bot<BotContext>, telegramGroupId: bigint, telegramUserId: number, groupId: string, userId: string): Promise<void> {
     await bot.api.unbanChatMember(Number(telegramGroupId), telegramUserId);

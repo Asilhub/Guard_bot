@@ -20,6 +20,12 @@ export class UserService {
     return prisma.user.findUnique({ where: { telegramId } });
   }
 
+  async getByUsername(username: string): Promise<User | null> {
+    return prisma.user.findFirst({
+      where: { username: { equals: username, mode: 'insensitive' } },
+    });
+  }
+
   async getMember(groupId: string, userId: string): Promise<GroupMember | null> {
     return prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId } },

@@ -2,6 +2,11 @@ import { Bot, InlineKeyboard } from 'grammy';
 import { BotContext } from '../types';
 import { groupService } from '../services/group.service';
 import { keywordService } from '../services/keyword.service';
+import { userService } from '../services/user.service';
+import { punishmentService } from '../services/punishment.service';
+import { prisma } from '../database/prisma';
+import { PunishmentType } from '@prisma/client';
+import { getDisplayName } from '../utils/helpers';
 import { requireAdmin, requireGroup } from '../middleware';
 import {
   mainMenuKeyboard,
@@ -24,6 +29,8 @@ import {
   keywordsText,
   helpKeyboard,
   helpText,
+  bansText,
+  bansKeyboard,
   nextPunishment,
 } from '../utils/menus';
 import { GroupSettings } from '@prisma/client';
@@ -110,9 +117,48 @@ function pageForField(field: keyof GroupSettings): keyof typeof PAGE_BUILDERS {
   return 'settings';
 }
 
+async function fetchActiveBans(groupId: string) {
+  const punishments = await prisma.punishment.findMany({
+    where: {
+      groupId,
+      type: {
+        in: [
+          PunishmentType.BAN,
+          PunishmentType.TEMP_BAN,
+          PunishmentType.MUTE,
+          PunishmentType.TEMP_MUTE,
+        ],
+      },
+      isActive: true,
+    },
+    include: { user: true },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+  // Deduplicate per user (keep most recent).
+  const seen = new Set<string>();
+  const items: Array<{
+    telegramId: bigint;
+    name: string;
+    reason: string | null;
+    type: PunishmentType;
+  }> = [];
+  for (const p of punishments) {
+    if (seen.has(p.userId)) continue;
+    seen.add(p.userId);
+    items.push({
+      telegramId: p.user.telegramId,
+      name: getDisplayName(p.user.firstName, p.user.lastName, p.user.username),
+      reason: p.reason ?? null,
+      type: p.type,
+    });
+  }
+  return items;
+}
+
 async function renderPage(
   ctx: BotContext,
-  page: keyof typeof PAGE_BUILDERS | 'main' | 'help' | 'keywords',
+  page: keyof typeof PAGE_BUILDERS | 'main' | 'help' | 'keywords' | 'bans',
 ): Promise<void> {
   if (page === 'main') {
     await ctx.editMessageText(mainMenuText(), {
@@ -134,6 +180,15 @@ async function renderPage(
     });
     return;
   }
+  if (page === 'bans') {
+    if (!ctx.group) return;
+    const items = await fetchActiveBans(ctx.group.id);
+    await ctx.editMessageText(bansText(items), {
+      parse_mode: 'HTML',
+      reply_markup: bansKeyboard(items),
+    });
+    return;
+  }
   if (!ctx.group?.settings) return;
   const fresh = await groupService.getByTelegramId(BigInt(ctx.chat!.id));
   if (!fresh?.settings) return;
@@ -150,8 +205,23 @@ export function registerMenuCommand(bot: Bot<BotContext>): void {
     });
   });
 
+  // Help is allowed everywhere (including private chat from /start button).
+  bot.callbackQuery('menu:help', async (ctx) => {
+    if (ctx.chat?.type === 'private') {
+      // No message edit context here — just send help text.
+      await ctx.editMessageText(helpText(), { parse_mode: 'HTML', reply_markup: helpKeyboard() })
+        .catch(async () => {
+          await ctx.reply(helpText(), { parse_mode: 'HTML' });
+        });
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    await renderPage(ctx, 'help');
+    await ctx.answerCallbackQuery();
+  });
+
   // ─── Navigation ───────────────────────────────────────────────────────
-  bot.callbackQuery(/^menu:(main|settings|cleaner|antispam|protection|keywords|warns|logging|plugins|help|close)$/, requireAdmin, async (ctx) => {
+  bot.callbackQuery(/^menu:(main|settings|cleaner|antispam|protection|keywords|warns|logging|plugins|bans|close)$/, requireAdmin, async (ctx) => {
     const target = ctx.match[1];
     if (target === 'close') {
       await ctx.deleteMessage().catch(() => {});
@@ -227,6 +297,54 @@ export function registerMenuCommand(bot: Bot<BotContext>): void {
     await keywordService.removeById(ctx.group.id, id);
     await renderPage(ctx, 'keywords');
     await ctx.answerCallbackQuery('🗑 O\'chirildi');
+  });
+
+  // ─── Unmute from restrictions page ────────────────────────────────────
+  bot.callbackQuery(/^unmuteu:(\d+)$/, requireAdmin, async (ctx) => {
+    if (!ctx.group) return ctx.answerCallbackQuery();
+    const telegramUserId = parseInt(ctx.match[1], 10);
+    const dbUser = await userService.getByTelegramId(BigInt(telegramUserId));
+    if (!dbUser) {
+      await ctx.answerCallbackQuery('❌ Foydalanuvchi topilmadi');
+      return;
+    }
+    try {
+      await punishmentService.unmute(
+        bot,
+        BigInt(ctx.chat!.id),
+        telegramUserId,
+        ctx.group.id,
+        dbUser.id,
+      );
+      await renderPage(ctx, 'bans');
+      await ctx.answerCallbackQuery('✅ Unmute qilindi');
+    } catch (err) {
+      await ctx.answerCallbackQuery(`❌ ${(err as Error).message}`);
+    }
+  });
+
+  // ─── Unban from bans page ─────────────────────────────────────────────
+  bot.callbackQuery(/^unban:(\d+)$/, requireAdmin, async (ctx) => {
+    if (!ctx.group) return ctx.answerCallbackQuery();
+    const telegramUserId = parseInt(ctx.match[1], 10);
+    const dbUser = await userService.getByTelegramId(BigInt(telegramUserId));
+    if (!dbUser) {
+      await ctx.answerCallbackQuery('❌ Foydalanuvchi topilmadi');
+      return;
+    }
+    try {
+      await punishmentService.unban(
+        bot,
+        BigInt(ctx.chat!.id),
+        telegramUserId,
+        ctx.group.id,
+        dbUser.id,
+      );
+      await renderPage(ctx, 'bans');
+      await ctx.answerCallbackQuery('✅ Unban qilindi');
+    } catch (err) {
+      await ctx.answerCallbackQuery(`❌ ${(err as Error).message}`);
+    }
   });
 
   // ─── Enter conversations ──────────────────────────────────────────────
