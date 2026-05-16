@@ -44,10 +44,12 @@ export function registerProtectionEvents(bot: Bot<BotContext>): void {
         if (settings.restrictNewUsers) {
           const dbUser = await userService.getOrCreate(BigInt(newMember.id), newMember.first_name);
           await cacheService.markNewUser(BigInt(ctx.chat.id), newMember.id, settings.newUserRestrictSec);
-          await bot.api.restrictChatMember(ctx.chat.id, newMember.id, {
-            permissions: { can_send_messages: false },
-            until_date: Math.floor(Date.now() / 1000) + settings.newUserRestrictSec,
-          });
+          await bot.api.restrictChatMember(
+            ctx.chat.id,
+            newMember.id,
+            { can_send_messages: false },
+            { until_date: Math.floor(Date.now() / 1000) + settings.newUserRestrictSec },
+          );
         }
         continue;
       }

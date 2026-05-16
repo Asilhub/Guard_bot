@@ -41,7 +41,7 @@ export class CaptchaPlugin implements IPlugin {
         // Restrict until captcha is passed
         try {
           await ctx.api.restrictChatMember(ctx.chat.id, member.id, {
-            permissions: { can_send_messages: false },
+            can_send_messages: false,
           });
         } catch { continue; }
 
@@ -84,7 +84,7 @@ export class CaptchaPlugin implements IPlugin {
       const correct = parseInt(correctStr);
 
       if (ctx.from.id !== userId) {
-        return ctx.answerCallbackQuery('❌ Bu captcha siz uchun emas!', { show_alert: true });
+        return ctx.answerCallbackQuery({ text: '❌ Bu captcha siz uchun emas!', show_alert: true });
       }
 
       const timeoutKey = `captcha:timeout:${ctx.chat!.id}:${userId}`;
@@ -93,19 +93,22 @@ export class CaptchaPlugin implements IPlugin {
         await redis.del(timeoutKey);
         try {
           await ctx.api.restrictChatMember(ctx.chat!.id, userId, {
-            permissions: {
-              can_send_messages: true,
-              can_send_media_messages: true,
-              can_send_polls: true,
-              can_send_other_messages: true,
-              can_add_web_page_previews: true,
-            },
+            can_send_messages: true,
+            can_send_audios: true,
+            can_send_documents: true,
+            can_send_photos: true,
+            can_send_videos: true,
+            can_send_video_notes: true,
+            can_send_voice_notes: true,
+            can_send_polls: true,
+            can_send_other_messages: true,
+            can_add_web_page_previews: true,
           });
           await ctx.deleteMessage();
         } catch {}
-        await ctx.answerCallbackQuery('✅ To\'g\'ri! Xush kelibsiz!', { show_alert: true });
+        await ctx.answerCallbackQuery({ text: '✅ To\'g\'ri! Xush kelibsiz!', show_alert: true });
       } else {
-        await ctx.answerCallbackQuery('❌ Noto\'g\'ri! Qayta urinib ko\'ring.', { show_alert: true });
+        await ctx.answerCallbackQuery({ text: '❌ Noto\'g\'ri! Qayta urinib ko\'ring.', show_alert: true });
       }
     });
   }

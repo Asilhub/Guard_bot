@@ -9,7 +9,10 @@ export function registerLoggingCommands(bot: Bot<BotContext>): void {
   // /setlogchat — reply from log group or use current chat
   bot.command('setlogchat', requireGroup, requireAdmin, async (ctx) => {
     if (!ctx.group) return;
-    const chatId = ctx.message?.forward_from_chat?.id ?? ctx.chat.id;
+    const origin = ctx.message?.forward_origin;
+    let chatId: number = ctx.chat.id;
+    if (origin?.type === 'channel') chatId = origin.chat.id;
+    else if (origin?.type === 'chat') chatId = origin.sender_chat.id;
     await groupService.updateSettings(ctx.group.id, {
       logEnabled: true,
       logChatId: BigInt(chatId),

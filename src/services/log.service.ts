@@ -1,10 +1,15 @@
 import { prisma } from '../database/prisma';
-import { LogAction } from '@prisma/client';
+import { LogAction, Prisma } from '@prisma/client';
 
 export class LogService {
   async log(groupId: string, action: LogAction, userId?: string, details?: Record<string, unknown>): Promise<void> {
     await prisma.log.create({
-      data: { groupId, action, userId, details },
+      data: {
+        groupId,
+        action,
+        userId,
+        details: (details ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+      },
     });
   }
 

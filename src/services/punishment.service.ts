@@ -35,17 +35,21 @@ export class PunishmentService {
 
       switch (type) {
         case PunishmentType.MUTE:
-          await bot.api.restrictChatMember(Number(telegramGroupId), telegramUserId, {
-            permissions: { can_send_messages: false },
-          });
+          await bot.api.restrictChatMember(
+            Number(telegramGroupId),
+            telegramUserId,
+            { can_send_messages: false },
+          );
           await logService.log(groupId, LogAction.USER_MUTED, userId, { reason });
           break;
 
         case PunishmentType.TEMP_MUTE:
-          await bot.api.restrictChatMember(Number(telegramGroupId), telegramUserId, {
-            permissions: { can_send_messages: false },
-            until_date: Math.floor((expiresAt?.getTime() ?? 0) / 1000),
-          });
+          await bot.api.restrictChatMember(
+            Number(telegramGroupId),
+            telegramUserId,
+            { can_send_messages: false },
+            { until_date: Math.floor((expiresAt?.getTime() ?? 0) / 1000) },
+          );
           await logService.log(groupId, LogAction.USER_TEMP_MUTED, userId, { reason, duration });
           break;
 
@@ -89,13 +93,16 @@ export class PunishmentService {
 
   async unmute(bot: Bot<BotContext>, telegramGroupId: bigint, telegramUserId: number, groupId: string, userId: string): Promise<void> {
     await bot.api.restrictChatMember(Number(telegramGroupId), telegramUserId, {
-      permissions: {
-        can_send_messages: true,
-        can_send_media_messages: true,
-        can_send_polls: true,
-        can_send_other_messages: true,
-        can_add_web_page_previews: true,
-      },
+      can_send_messages: true,
+      can_send_audios: true,
+      can_send_documents: true,
+      can_send_photos: true,
+      can_send_videos: true,
+      can_send_video_notes: true,
+      can_send_voice_notes: true,
+      can_send_polls: true,
+      can_send_other_messages: true,
+      can_add_web_page_previews: true,
     });
     await prisma.punishment.updateMany({
       where: { groupId, userId, type: { in: [PunishmentType.MUTE, PunishmentType.TEMP_MUTE] }, isActive: true },

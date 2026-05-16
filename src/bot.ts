@@ -1,5 +1,5 @@
 import { Bot, session } from 'grammy';
-import { hydrateReply, parseMode } from '@grammyjs/parse-mode';
+import { parseMode } from '@grammyjs/parse-mode';
 import { hydrate } from '@grammyjs/hydrate';
 import { BotContext, SessionData } from './types';
 import { config } from './configs';
@@ -33,9 +33,8 @@ export function createBot(): Bot<BotContext> {
   const bot = new Bot<BotContext>(config.bot.token);
 
   // ─── Grammy plugins ────────────────────────────────────────────────────
-  bot.use(hydrateReply);
   bot.use(hydrate());
-  bot.use(parseMode('HTML'));
+  bot.api.config.use(parseMode('HTML'));
 
   bot.use(
     session<SessionData, BotContext>({

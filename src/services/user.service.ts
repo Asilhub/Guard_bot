@@ -26,7 +26,7 @@ export class UserService {
     });
   }
 
-  async getOrCreateMember(groupId: string, userId: string, role = Role.MEMBER): Promise<GroupMember> {
+  async getOrCreateMember(groupId: string, userId: string, role: Role = Role.MEMBER): Promise<GroupMember> {
     return prisma.groupMember.upsert({
       where: { groupId_userId: { groupId, userId } },
       update: {},
